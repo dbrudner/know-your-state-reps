@@ -30,6 +30,8 @@ function getState(address) {
 }
 
 
+
+
 var getBills = (representative, isSenator, latitude, longitude) => {
 
     var latitude = localStorage.getItem("latitude");
@@ -39,16 +41,15 @@ var getBills = (representative, isSenator, latitude, longitude) => {
 
     // This function takes a name "Dave Brudner" and returns it in last name, comma, first name form ("Brudner, Dave")
     // Works with middle names too. Doesn't work with full names with more than 3 names
-    var lastNameCommaFirstName = (name) => {
+    var RepresentativeName = (name) => {
 
         var name = name.split(" ")
 
         if (name.length === 2) {
             var firstName = name[0]
             var lastName = name[1]
-            var lastNameCommaFirstName = lastName + ", " + firstName;
-            console.log(lastNameCommaFirstName)
-            return lastNameCommaFirstName
+            var RepresentativeName = lastName + " " + firstName;
+            return RepresentativeName
         }
 
         if (name.length === 3) {
@@ -64,15 +65,28 @@ var getBills = (representative, isSenator, latitude, longitude) => {
             }
 
             console.log(middleName);
-           	var lastNameCommaFirstName = `${lastName}, ${firstName} ${middleName}`
-            console.log(lastNameCommaFirstName)
-            return lastNameCommaFirstName
+           	var RepresentativeName = `${lastName} ${firstName} ${middleName}`
+            console.log(RepresentativeName)
+            return RepresentativeName
         }
     }
 
+    // This function removes commas from a string
+    var removeCommas = (string) => {
+        return string.split('').filter((letter) => {
+            return letter != ','
+        }).join('')
+    }
+
+    var specialCaseName = (string) => {
+        string = string.split(" ")
+        return `${string[1]} ${string[2]} ${string[0]}`
+    }
+
     // Change name into last name, first name so we can search later for yes votes in a bill
-    var repName = representative
-    var lastNameCommaFirstName = lastNameCommaFirstName(repName);
+    var repName = representative;
+    var RepresentativeName = RepresentativeName(repName);
+    var specialCaseName = specialCaseName(repName);
 
     var state;
     // Url to retrieve 10 bills
@@ -154,9 +168,9 @@ var getBills = (representative, isSenator, latitude, longitude) => {
                 var billId = (data[i].id)
                 var bills = []
 
-                // console.log("https://openstates.org/api/v1/bills/" + billId + "/?&apikey=8cef81cb-a1a4-48d3-86ff-0520d28f6ca6")
-                // Console logs detailed bill url.
                 console.log("https://openstates.org/api/v1/bills/" + billId + "/?&apikey=8cef81cb-a1a4-48d3-86ff-0520d28f6ca6")
+                // Console logs detailed bill url.
+                // console.log("https://openstates.org/api/v1/bills/" + billId + "/?&apikey=8cef81cb-a1a4-48d3-86ff-0520d28f6ca6")
 
                 $.ajax({
                         url: "https://openstates.org/api/v1/bills/" + billId + "/?&apikey=8cef81cb-a1a4-48d3-86ff-0520d28f6ca6",
@@ -167,11 +181,11 @@ var getBills = (representative, isSenator, latitude, longitude) => {
                         var bill = {}
 
                         // Bill votes default to no or other. We change the vote to yes later. This is easier and faster than writing 3 loops to search through bill's voting records, but this can be changed if we'd like.
-                        bill.vote = "no or other"
-                        voteIcon = "thumb_down"
+                        bill.vote = "No vote found at this time";
+                        voteIcon = "help"
                         bill.senateVote = "No vote reported";
                         bill.assemblyVote = "No vote reported";
-
+                        
                         // Loops through bill object looking for a motion with the string "3RDG FINAL PASSAGE," which indicates a final vote. We need this differentiate from committee votes. Chamber === upper because this is a search for a senator.
                         for (var i = 0; i < results.votes.length; i++) {
 
@@ -184,11 +198,27 @@ var getBills = (representative, isSenator, latitude, longitude) => {
                                 // I've tested this on 2 senators and the checked the results myself and it appears to work.
 
                                 for (var j = 0; j < results.votes[i].yes_votes.length; j++) {
-                                    if (results.votes[i].yes_votes[j].name === lastNameCommaFirstName) {
+                                    if (removeCommas(results.votes[i].yes_votes[j].name) === RepresentativeName || removeCommas(results.votes[i].yes_votes[j].name) === specialCaseName) {
                                         bill.vote = "yes";
-                                        voteIcon = "thumb_up"
+                                        voteIcon = "thumb_up";
+
                                     }
                                 }
+                                for (var j = 0; j < results.votes[i].no_votes.length; j++) {
+                                    if (removeCommas(results.votes[i].no_votes[j].name) === RepresentativeName || removeCommas(results.votes[i].yes_votes[j].name) === specialCaseName) {
+                                        bill.vote = "no";
+                                        voteIcon = "thumb_down";
+
+                                    }                               
+                                }
+                                for (var j = 0; j < results.votes[i].other_votes.length; j++) {
+                                    if (removeCommas(results.votes[i].other_votes[j].name) === RepresentativeName || removeCommas(results.votes[i].yes_votes[j].name) === specialCaseName) {
+                                        bill.vote = "other";
+                                        voteIcon = "thumbs_up_down";
+
+                                    }                               
+                                }
+                                
                             }
 
                             if (results.votes[i].motion === "3RDG FINAL PASSAGE" && results.votes[i].chamber === "lower" && isSenator === "false") {
@@ -200,10 +230,29 @@ var getBills = (representative, isSenator, latitude, longitude) => {
                                 // I've tested this on 2 senators and the checked the results myself and it appears to work.
 
                                 for (var j = 0; j < results.votes[i].yes_votes.length; j++) {
-                                    if (results.votes[i].yes_votes[j].name === lastNameCommaFirstName) {
+                                    if (removeCommas(results.votes[i].yes_votes[j].name) === RepresentativeName || removeCommas(results.votes[i].yes_votes[j].name) === specialCaseName) {
+                                        // console.log("YES")
                                         bill.vote = "yes";
-                                        voteIcon = "thumb_up"
-                                    }
+                                        voteIcon = "thumb_up";
+
+                                    }                               
+                                }
+                                for (var j = 0; j < results.votes[i].no_votes.length; j++) {
+                                    if (removeCommas(results.votes[i].no_votes[j].name) === RepresentativeName || removeCommas(results.votes[i].yes_votes[j].name) === specialCaseName) {
+                                        // console.log("NO")
+                                        bill.vote = "no";
+                                        voteIcon = "thumb_down";
+
+                                    }                               
+                                }
+                                for (var j = 0; j < results.votes[i].other_votes.length; j++) {
+                                    if (removeCommas(results.votes[i].other_votes[j].name) === RepresentativeName || removeCommas(results.votes[i].yes_votes[j].name) === specialCaseName) {
+                                        // console.log("OTHER");
+                                        bill.vote = "other";
+                                        voteIcon = "thumbs_up_down";
+
+
+                                    }                               
                                 }
                             }
                         }
@@ -227,7 +276,6 @@ var getBills = (representative, isSenator, latitude, longitude) => {
 
                         }
                         bills.push(bill);
-
                         var billLi = $("<li>")
                         var billName = $("<div class='collapsible-header cyan darken-1'>")
                         
@@ -236,6 +284,7 @@ var getBills = (representative, isSenator, latitude, longitude) => {
                         var billSenate = $("<div class='collapsible-body cyan'><span>")
                         var billAssembly = $("<span>")
                         var billDate = $("<span>")
+                        var billVoteDetail = $("<span>")
 
                         billVote.text(voteIcon);
                         billName.append(billVote);
@@ -243,12 +292,14 @@ var getBills = (representative, isSenator, latitude, longitude) => {
 
                         billSenate.append("<strong>How the bill did in the Senate</strong> <br>" + bill.senateVote + "<br><br>");
                         billAssembly.append("<strong>How the bill did in the Assembly</strong><br> " + bill.assemblyVote + "<br><br>");
-                        billDate.append("<strong>Date the bill was introduced</strong><br> " + bill.dateIntroduced);
+                        billDate.append("<strong>Date the bill was introduced</strong><br> " + bill.dateIntroduced + "<br><br>");
+                        billVoteDetail.append("<strong>How your rep voted</strong><br>" + bill.vote);
 
                         billLi.append(billName);
 
                         billSenate.append(billAssembly);
                         billSenate.append(billDate);
+                        billSenate.append(billVoteDetail);
                         
                         billLi.append(billSenate);
 
@@ -469,7 +520,6 @@ $(".card-title").click(function() {
         	isSenator = "false"
         }
 
-        console.log(isSenator);
 
         getBills(response.full_name, isSenator, latitude, longitude)
     });
